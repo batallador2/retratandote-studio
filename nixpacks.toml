@@ -1,14 +1,5 @@
-[providers]
-  node = {}
-
-[phases.setup]
-  nixPkgs = ["nodejs-20_x"]
-
-[phases.install]
-  cmds = ["npm install"]
-
 [phases.build]
-  cmds = ["npm run build"]
+cmds = ["npm install", "npm run build"]
 
 [start]
-  cmd = "npx serve -s dist -l 3000"
+cmd = "npx serve -s dist -l 3000"
