@@ -8,6 +8,37 @@ export const base44 = {
       const { data } = await supabase.auth.getSession();
       return data?.session?.user || null;
     },
+    loginViaEmailPassword: async (email, password) => {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      return data;
+    },
+    register: async ({ email, password }) => {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
+      return data;
+    },
+    loginWithProvider: async (provider, redirectTo) => {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: window.location.origin + (redirectTo || '/') }
+      });
+      if (error) throw error;
+      return data;
+    },
+    verifyOtp: async ({ email, otpCode }) => {
+      const { data, error } = await supabase.auth.verifyOtp({ email, token: otpCode, type: 'signup' });
+      if (error) throw error;
+      return data;
+    },
+    resendOtp: async (email) => {
+      const { data, error } = await supabase.auth.resend({ type: 'signup', email });
+      if (error) throw error;
+      return data;
+    },
+    setToken: (token) => {
+      // Supabase manages sessions automatically
+    },
     logout: async () => {
       await supabase.auth.signOut();
       window.location.href = '/login';
