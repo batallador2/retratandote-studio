@@ -1,0 +1,77 @@
+{
+  "name": "Lead",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nombre del cliente"
+    },
+    "email": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "boda",
+        "bautizo",
+        "comunion",
+        "otro"
+      ],
+      "default": "boda"
+    },
+    "event_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "location": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "nuevo",
+        "contactado",
+        "convertido",
+        "descartado"
+      ],
+      "default": "nuevo"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "web",
+        "whatsapp",
+        "instagram",
+        "manual"
+      ],
+      "default": "web"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "rls": {
+    "create": null,
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

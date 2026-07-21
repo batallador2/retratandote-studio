@@ -1,0 +1,45 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 */3 * * *",
+      "one_time_date": null,
+      "timezone": "Europe/Madrid",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "copia_seguridad_invitados",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "ejecutar_copia": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "backupGuestPhotos",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Copiar fotos a Drive",
+            "description": "Copia incremental + programar archivo"
+          }
+        }
+      }
+    ]
+  },
+  "description": "Cada 3 horas copia a Google Drive las fotos nuevas subidas por invitados y programa el archivo definitivo de las bodas cerradas.",
+  "name": "Copia de seguridad de fotos de invitados"
+}

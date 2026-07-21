@@ -1,0 +1,55 @@
+{
+  "name": "Payment",
+  "type": "object",
+  "properties": {
+    "wedding_id": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string",
+      "description": "Ej: Reserva 20%"
+    },
+    "amount": {
+      "type": "number"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "paid": {
+      "type": "boolean",
+      "default": false
+    },
+    "paid_date": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "wedding_id",
+    "label",
+    "amount"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

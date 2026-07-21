@@ -1,0 +1,46 @@
+{
+  "name": "BackupItem",
+  "type": "object",
+  "properties": {
+    "wedding_id": {
+      "type": "string"
+    },
+    "asset_id": {
+      "type": "string",
+      "description": "ID del asset en Immich"
+    },
+    "drive_file_id": {
+      "type": "string",
+      "description": "ID del archivo copiado en Google Drive"
+    },
+    "filename": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "wedding_id",
+    "asset_id"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

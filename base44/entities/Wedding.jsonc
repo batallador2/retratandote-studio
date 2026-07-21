@@ -1,0 +1,167 @@
+{
+  "name": "Wedding",
+  "type": "object",
+  "properties": {
+    "couple_names": {
+      "type": "string",
+      "description": "Nombres de la pareja"
+    },
+    "email": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "event_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "location": {
+      "type": "string"
+    },
+    "package_name": {
+      "type": "string"
+    },
+    "total_price": {
+      "type": "number"
+    },
+    "extras": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "propuesta_enviada",
+        "contrato_firmado",
+        "reserva_cobrada",
+        "fotografiada",
+        "en_edicion",
+        "adelanto_entregado",
+        "galeria_entregada",
+        "cerrado"
+      ],
+      "default": "propuesta_enviada"
+    },
+    "contract_signed": {
+      "type": "boolean",
+      "default": false
+    },
+    "contract_signed_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "billing_name": {
+      "type": "string",
+      "description": "Nombre completo del cliente para justificantes/facturas"
+    },
+    "billing_nif": {
+      "type": "string",
+      "description": "DNI/NIF del cliente"
+    },
+    "billing_address": {
+      "type": "string",
+      "description": "Direcci\u00f3n completa del cliente"
+    },
+    "gallery_url": {
+      "type": "string",
+      "description": "URL de la galer\u00eda privada (SVP)"
+    },
+    "portal_token": {
+      "type": "string",
+      "description": "Token \u00fanico del portal del cliente"
+    },
+    "guest_token": {
+      "type": "string",
+      "description": "Token \u00fanico del \u00e1rea de invitados"
+    },
+    "immich_album_id": {
+      "type": "string",
+      "description": "ID del \u00e1lbum en Immich para fotos de invitados"
+    },
+    "immich_avance_album_id": {
+      "type": "string",
+      "description": "ID del \u00e1lbum de Avance en Immich"
+    },
+    "immich_avance_share_key": {
+      "type": "string",
+      "description": "Key del enlace compartido del \u00e1lbum Avance"
+    },
+    "immich_entrega_album_id": {
+      "type": "string",
+      "description": "ID del \u00e1lbum de Entrega en Immich"
+    },
+    "immich_entrega_share_key": {
+      "type": "string",
+      "description": "Key del enlace compartido del \u00e1lbum Entrega"
+    },
+    "archived": {
+      "type": "boolean",
+      "default": false,
+      "description": "Boda archivada en Google Drive"
+    },
+    "archived_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "archive_folder_url": {
+      "type": "string",
+      "description": "Enlace a la carpeta de archivo en Google Drive"
+    },
+    "archive_drive_folder_id": {
+      "type": "string",
+      "description": "ID de la carpeta de Drive donde se archiva la boda"
+    },
+    "archive_due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha programada de archivo definitivo"
+    },
+    "docs_archived": {
+      "type": "boolean",
+      "default": false,
+      "description": "Documentos ya copiados a Drive"
+    },
+    "last_backup_date": {
+      "type": "string",
+      "format": "date",
+      "description": "\u00daltima copia de seguridad de fotos de invitados"
+    },
+    "backup_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Fotos de invitados ya copiadas a Drive"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "anniversary_contacted": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "couple_names"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "name": "WeddingExtra",
+  "type": "object",
+  "properties": {
+    "wedding_id": {
+      "type": "string"
+    },
+    "concept": {
+      "type": "string",
+      "description": "Descripci\u00f3n del extra (ej: \u00c1lbum para padres)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descripci\u00f3n corta opcional"
+    },
+    "amount": {
+      "type": "number"
+    },
+    "payment_id": {
+      "type": "string",
+      "description": "Pago al que se sum\u00f3 el importe"
+    }
+  },
+  "required": [
+    "wedding_id",
+    "concept",
+    "amount"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

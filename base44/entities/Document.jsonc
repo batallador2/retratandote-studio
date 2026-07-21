@@ -1,0 +1,59 @@
+{
+  "name": "Document",
+  "type": "object",
+  "properties": {
+    "wedding_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string",
+      "description": "Nombre visible del documento"
+    },
+    "doc_type": {
+      "type": "string",
+      "enum": [
+        "contrato",
+        "factura",
+        "presupuesto",
+        "justificante",
+        "otro"
+      ],
+      "default": "otro"
+    },
+    "file_uri": {
+      "type": "string",
+      "description": "URI del archivo en almacenamiento privado"
+    },
+    "visible_to_client": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "wedding_id",
+    "name",
+    "file_uri"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

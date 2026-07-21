@@ -1,0 +1,46 @@
+{
+  "name": "ClientMessage",
+  "type": "object",
+  "properties": {
+    "wedding_id": {
+      "type": "string"
+    },
+    "sender": {
+      "type": "string",
+      "enum": [
+        "cliente",
+        "fotografo"
+      ],
+      "default": "cliente"
+    },
+    "content": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "wedding_id",
+    "content"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
