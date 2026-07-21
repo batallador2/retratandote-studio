@@ -76,7 +76,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const navigateToLogin = () => {
-    window.location.href = '/login';
+    const currentPath = window.location.pathname;
+    if (currentPath !== '/login' && currentPath !== '/register' && currentPath !== '/forgot-password') {
+      window.location.href = '/login';
+    }
   };
 
   return (

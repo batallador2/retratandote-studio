@@ -20,6 +20,9 @@ const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 const LeadForm = lazy(() => import('@/pages/LeadForm'));
 const ClientPortal = lazy(() => import('@/pages/ClientPortal'));
 const GuestArea = lazy(() => import('@/pages/GuestArea'));
+const Login = lazy(() => import('@/pages/Login'));
+const Register = lazy(() => import('@/pages/Register'));
+const ForgotPassword = lazy(() => import('@/pages/ForgotPassword'));
 
 const LoadingSpinner = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-background">
@@ -39,7 +42,6 @@ const AuthenticatedApp = () => {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
       navigateToLogin();
-      return null;
     }
   }
 
@@ -50,6 +52,9 @@ const AuthenticatedApp = () => {
         <Route path="/solicitud" element={<LeadForm />} />
         <Route path="/portal/:token" element={<ClientPortal />} />
         <Route path="/invitados/:token" element={<GuestArea />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         
         {/* Admin Routes */}
         <Route element={<Layout />}>
