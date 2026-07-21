@@ -58,24 +58,53 @@ export const base44 = {
       if (tableName === 'extra_service_s') tableName = 'extra_services';
       if (tableName === 'client_message_s') tableName = 'client_messages';
       
+      const normalizeItem = (item) => {
+        if (!item) return item;
+        return {
+          ...item,
+          couple_names: item.couple_names || item.client_name || item.title || '',
+          event_date: item.event_date || item.wedding_date || '',
+          created_date: item.created_date || item.created_at || ''
+        };
+      };
+
       return {
+        get: async (id) => {
+          const { data, error } = await supabase.from(tableName).select('*').eq('id', id).single();
+          if (error) console.error(`Error getting ${tableName}:`, error);
+          return normalizeItem(data);
+        },
         list: async (orderBy, limit) => {
           let query = supabase.from(tableName).select('*');
-          if (orderBy) query = query.order(orderBy.replace('-', ''), { ascending: !orderBy.startsWith('-') });
+          if (orderBy) {
+            let col = orderBy.replace('-', '');
+            if (col === 'created_date') col = 'created_at';
+            query = query.order(col, { ascending: !orderBy.startsWith('-') });
+          }
           if (limit) query = query.limit(limit);
           const { data, error } = await query;
-          if (error) console.error(`Error listing ${tableName}:`, error);
-          return data || [];
+          if (error) {
+            console.error(`Error listing ${tableName}:`, error);
+            // Fallback retry without ordering in case column differs
+            const retry = await supabase.from(tableName).select('*');
+            return (retry.data || []).map(normalizeItem);
+          }
+          return (data || []).map(normalizeItem);
         },
         create: async (payload) => {
           const { data, error } = await supabase.from(tableName).insert(payload).select().single();
           if (error) console.error(`Error creating ${tableName}:`, error);
-          return data;
+          return normalizeItem(data);
+        },
+        bulkCreate: async (items) => {
+          const { data, error } = await supabase.from(tableName).insert(items).select();
+          if (error) console.error(`Error bulk creating ${tableName}:`, error);
+          return (data || []).map(normalizeItem);
         },
         update: async (id, payload) => {
           const { data, error } = await supabase.from(tableName).update(payload).eq('id', id).select().single();
           if (error) console.error(`Error updating ${tableName}:`, error);
-          return data;
+          return normalizeItem(data);
         },
         delete: async (id) => {
           const { error } = await supabase.from(tableName).delete().eq('id', id);
@@ -84,11 +113,13 @@ export const base44 = {
         filter: async (filters) => {
           let query = supabase.from(tableName).select('*');
           Object.keys(filters).forEach(key => {
-            query = query.eq(key, filters[key]);
+            let col = key;
+            if (col === 'created_date') col = 'created_at';
+            query = query.eq(col, filters[key]);
           });
           const { data, error } = await query;
           if (error) console.error(`Error filtering ${tableName}:`, error);
-          return data || [];
+          return (data || []).map(normalizeItem);
         }
       };
     }
