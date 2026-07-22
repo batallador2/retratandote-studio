@@ -64,7 +64,9 @@ export const base44 = {
           ...item,
           couple_names: item.couple_names || item.client_name || item.title || '',
           event_date: item.event_date || item.wedding_date || '',
-          created_date: item.created_date || item.created_at || ''
+          created_date: item.created_date || item.created_at || '',
+          concept: item.concept || item.name || '',
+          name: item.name || item.concept || ''
         };
       };
 
@@ -85,14 +87,41 @@ export const base44 = {
           const { data, error } = await query;
           if (error) {
             console.error(`Error listing ${tableName}:`, error);
-            // Fallback retry without ordering in case column differs
             const retry = await supabase.from(tableName).select('*');
             return (retry.data || []).map(normalizeItem);
           }
           return (data || []).map(normalizeItem);
         },
+        filter: async (criteria, orderBy) => {
+          let query = supabase.from(tableName).select('*');
+          Object.keys(criteria).forEach((key) => {
+            query = query.eq(key, criteria[key]);
+          });
+          if (orderBy) {
+            let col = orderBy.replace('-', '');
+            if (col === 'created_date') col = 'created_at';
+            query = query.order(col, { ascending: !orderBy.startsWith('-') });
+          }
+          const { data, error } = await query;
+          if (error) {
+            console.error(`Error filtering ${tableName}:`, error);
+            return [];
+          }
+          return (data || []).map(normalizeItem);
+        },
         create: async (payload) => {
-          const { data, error } = await supabase.from(tableName).insert(payload).select().single();
+          const cleanPayload = { ...payload };
+          if (tableName === 'weddings') {
+            cleanPayload.portal_token = cleanPayload.portal_token || ('portal_' + Math.random().toString(36).substring(2, 9));
+            cleanPayload.guest_token = cleanPayload.guest_token || ('guest_' + Math.random().toString(36).substring(2, 9));
+            cleanPayload.client_name = cleanPayload.client_name || cleanPayload.couple_names || 'Cliente';
+            cleanPayload.client_email = cleanPayload.client_email || cleanPayload.email || '';
+          }
+          if (tableName === 'wedding_extras') {
+            cleanPayload.name = cleanPayload.name || cleanPayload.concept || 'Extra';
+            cleanPayload.concept = cleanPayload.concept || cleanPayload.name || 'Extra';
+          }
+          const { data, error } = await supabase.from(tableName).insert(cleanPayload).select().single();
           if (error) console.error(`Error creating ${tableName}:`, error);
           return normalizeItem(data);
         },

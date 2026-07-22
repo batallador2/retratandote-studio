@@ -22,24 +22,33 @@ export default function ConvertLeadDialog({ lead, packages, open, onOpenChange }
 
   const convert = async () => {
     setSaving(true);
-    const wedding = await base44.entities.Wedding.create({
-      couple_names: lead.name,
-      email: lead.email || "",
-      phone: lead.phone || "",
-      event_date: lead.event_date || undefined,
-      location: lead.location || "",
-      package_name: pkgName,
-      total_price: parseFloat(price) || 0,
-      status: "propuesta_enviada",
-      portal_token: genToken(),
-    });
-    if (lead.event_date) {
-      await base44.entities.CalendarBlock.create({ date: lead.event_date, type: "tentativa", title: `Boda ${lead.name}` });
+    try {
+      const wedding = await base44.entities.Wedding.create({
+        couple_names: lead.name,
+        client_name: lead.name,
+        client_email: lead.email || "",
+        phone: lead.phone || "",
+        event_date: lead.event_date || undefined,
+        location: lead.location || "",
+        package_name: pkgName,
+        total_price: parseFloat(price) || 0,
+        status: "propuesta_enviada",
+        portal_token: genToken(),
+        guest_token: genToken()
+      });
+      if (lead.event_date) {
+        await base44.entities.CalendarBlock.create({ date: lead.event_date, type: "tentativa", title: `Boda ${lead.name}` });
+      }
+      await base44.entities.Lead.update(lead.id, { status: "convertido" });
+      setSaving(false);
+      onOpenChange(false);
+      if (wedding && wedding.id) {
+        navigate(`/boda/${wedding.id}`);
+      }
+    } catch (err) {
+      console.error("Error al convertir solicitud:", err);
+      setSaving(false);
     }
-    await base44.entities.Lead.update(lead.id, { status: "convertido" });
-    setSaving(false);
-    onOpenChange(false);
-    navigate(`/boda/${wedding.id}`);
   };
 
   return (
