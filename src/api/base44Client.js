@@ -62,6 +62,8 @@ export const base44 = {
         if (!item) return item;
         return {
           ...item,
+          url: item.url || item.file_url || item.file_uri || '',
+          file_url: item.file_url || item.url || item.file_uri || '',
           couple_names: item.couple_names || item.client_name || item.title || '',
           event_date: item.event_date || item.wedding_date || '',
           created_date: item.created_date || item.created_at || '',
@@ -243,6 +245,8 @@ export const base44 = {
 
         const normalize = (item) => item ? {
           ...item,
+          url: item.url || item.file_url || item.file_uri || '',
+          file_url: item.file_url || item.url || item.file_uri || '',
           couple_names: item.couple_names || item.client_name || item.title || '',
           event_date: item.event_date || item.wedding_date || '',
           created_date: item.created_date || item.created_at || ''
@@ -254,10 +258,21 @@ export const base44 = {
           const file_url = `data:image/jpeg;base64,${base64Data}`;
           await supabase.from('gallery_photos').insert({
             wedding_id: wedding.id,
-            file_url,
+            url: file_url,
+            file_url: file_url,
             filename: filename || 'guest_photo.jpg',
             section: 'guest'
           });
+        }
+
+        if (action === "thumbnail" || action === "asset") {
+          const assetId = args.asset_id || args.id;
+          const { data: photo } = await supabase.from('gallery_photos').select('*').eq('id', assetId).maybeSingle();
+          return {
+            data: {
+              data: photo?.url || photo?.file_url || photo?.file_uri || ''
+            }
+          };
         }
 
         const { data: assets } = await supabase.from('gallery_photos').select('*').eq('wedding_id', wedding.id);
@@ -275,6 +290,16 @@ export const base44 = {
   },
   integrations: {
     Core: {
+      UploadFile: async ({ file }) => {
+        if (!file) return { file_url: '', url: '' };
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve({ file_url: reader.result, url: reader.result });
+          };
+          reader.readAsDataURL(file);
+        });
+      },
       UploadPrivateFile: async ({ file }) => {
         if (!file) return { file_uri: '' };
         return new Promise((resolve) => {
