@@ -26,10 +26,28 @@ export default function Pipeline() {
   }, []);
 
   const todayStr = format(new Date(), "yyyy-MM-dd");
-  const overdueOf = (weddingId) =>
-    payments
-      .filter((p) => p.wedding_id === weddingId && !p.paid && p.due_date && p.due_date < todayStr)
+  const isPaymentRelevantOverdue = (p, w) => {
+    if (p.paid || !p.due_date || p.due_date >= todayStr) return false;
+    const label = (p.label || "").toLowerCase();
+    const status = w?.status || "";
+
+    // "a la entrega" o pago final solo debe marcarse vencido si la boda ya se fotografió o está en fase de entrega
+    if ((label.includes("entrega") || label.includes("final")) && ["propuesta_enviada", "contrato_firmado", "reserva_cobrada"].includes(status)) {
+      return false;
+    }
+    // "un mes antes" o segundo pago solo se marca vencido si está en contrato/reserva o posterior
+    if (label.includes("mes antes") && status === "propuesta_enviada") {
+      return false;
+    }
+    return true;
+  };
+
+  const overdueOf = (weddingId) => {
+    const w = weddings.find((item) => item.id === weddingId);
+    return payments
+      .filter((p) => p.wedding_id === weddingId && isPaymentRelevantOverdue(p, w))
       .reduce((s, p) => s + (p.amount || 0), 0);
+  };
 
   const onDragEnd = async (result) => {
     if (!result.destination) return;
