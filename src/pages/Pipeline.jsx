@@ -26,26 +26,17 @@ export default function Pipeline() {
   }, []);
 
   const todayStr = format(new Date(), "yyyy-MM-dd");
-  const isPaymentRelevantOverdue = (p, w) => {
-    if (p.paid || !p.due_date || p.due_date >= todayStr) return false;
-    const label = (p.label || "").toLowerCase();
-    const status = w?.status || "";
-
-    // "a la entrega" o pago final solo debe marcarse vencido si la boda ya se fotografió o está en fase de entrega
-    if ((label.includes("entrega") || label.includes("final")) && ["propuesta_enviada", "contrato_firmado", "reserva_cobrada"].includes(status)) {
-      return false;
-    }
-    // "un mes antes" o segundo pago solo se marca vencido si está en contrato/reserva o posterior
-    if (label.includes("mes antes") && status === "propuesta_enviada") {
-      return false;
-    }
-    return true;
+  const isOverdue = (p) => {
+    if (!p) return false;
+    const isPaid = p.paid === true || p.paid === "true" || p.paid === 1;
+    if (isPaid) return false; // SI ESTÁ PAGADO NUNCA ES VENCIDO
+    if (!p.due_date) return false;
+    return p.due_date < todayStr;
   };
 
   const overdueOf = (weddingId) => {
-    const w = weddings.find((item) => item.id === weddingId);
     return payments
-      .filter((p) => p.wedding_id === weddingId && isPaymentRelevantOverdue(p, w))
+      .filter((p) => p.wedding_id === weddingId && isOverdue(p))
       .reduce((s, p) => s + (p.amount || 0), 0);
   };
 
@@ -108,17 +99,22 @@ export default function Pipeline() {
                     <div className="space-y-2 min-h-[60px]">
                       {items.map((w, i) => {
                         const overdue = overdueOf(w.id);
+                        const hasPaidPayments = payments.some((p) => p.wedding_id === w.id && (p.paid === true || p.paid === "true" || p.paid === 1));
                         return (
                           <Draggable key={w.id} draggableId={w.id} index={i}>
                             {(prov, snap) => (
                               <div ref={prov.innerRef} {...prov.draggableProps} {...prov.dragHandleProps}>
                                 <Link to={`/boda/${w.id}`} className="block">
-                                  <div className={`bg-white rounded-lg p-3 border shadow-sm hover:shadow-md transition-shadow ${overdue > 0 ? "border-red-400 ring-1 ring-red-200" : "border-stone-200"} ${snap.isDragging ? "rotate-2 shadow-lg" : ""}`}>
-                                    {overdue > 0 && (
+                                  <div className={`bg-white rounded-lg p-3 border shadow-sm hover:shadow-md transition-shadow ${overdue > 0 ? "border-red-400 ring-1 ring-red-200" : hasPaidPayments ? "border-emerald-200" : "border-stone-200"} ${snap.isDragging ? "rotate-2 shadow-lg" : ""}`}>
+                                    {overdue > 0 ? (
                                       <p className="flex items-center gap-1 text-[10px] font-semibold text-red-600 bg-red-50 rounded px-1.5 py-0.5 mb-1.5 w-fit">
                                         <AlertTriangle className="w-3 h-3" /> Pago vencido: {fmtEUR(overdue)}
                                       </p>
-                                    )}
+                                    ) : hasPaidPayments ? (
+                                      <p className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded px-1.5 py-0.5 mb-1.5 w-fit">
+                                        <CheckCircle2 className="w-3 h-3" /> Pagos al día
+                                      </p>
+                                    ) : null}
                                     <p className="text-sm font-medium text-[#1A1A18] leading-snug">{w.couple_names}</p>
                                     <p className="text-xs text-stone-500 mt-1">
                                       {w.event_date ? format(new Date(w.event_date), "d MMM yyyy", { locale: es }) : "Sin fecha"}
