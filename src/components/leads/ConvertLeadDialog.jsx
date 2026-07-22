@@ -27,7 +27,6 @@ export default function ConvertLeadDialog({ lead, packages, open, onOpenChange }
         couple_names: lead.name,
         client_name: lead.name,
         client_email: lead.email || "",
-        phone: lead.phone || "",
         event_date: lead.event_date || undefined,
         location: lead.location || "",
         package_name: pkgName,

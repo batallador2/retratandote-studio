@@ -114,8 +114,11 @@ export const base44 = {
           if (tableName === 'weddings') {
             cleanPayload.portal_token = cleanPayload.portal_token || ('portal_' + Math.random().toString(36).substring(2, 9));
             cleanPayload.guest_token = cleanPayload.guest_token || ('guest_' + Math.random().toString(36).substring(2, 9));
-            cleanPayload.client_name = cleanPayload.client_name || cleanPayload.couple_names || 'Cliente';
+            cleanPayload.client_name = cleanPayload.client_name || cleanPayload.couple_names || cleanPayload.name || 'Cliente';
             cleanPayload.client_email = cleanPayload.client_email || cleanPayload.email || '';
+            cleanPayload.title = cleanPayload.title || `Boda de ${cleanPayload.couple_names}`;
+            delete cleanPayload.email;
+            delete cleanPayload.phone;
           }
           if (tableName === 'wedding_extras') {
             cleanPayload.name = cleanPayload.name || cleanPayload.concept || 'Extra';
