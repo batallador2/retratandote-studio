@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import PageHeader from "@/components/PageHeader";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { WEDDING_STATUSES, fmtEUR } from "@/lib/constants";
