@@ -28,6 +28,13 @@ export default function PaymentsCard({ payments, wedding, extras = [], onChanged
     setBusy(p.id);
     const paid_date = format(new Date(), "yyyy-MM-dd");
     await base44.entities.Payment.update(p.id, { paid: true, paid_date });
+
+    // Avanzar automáticamente la fase del Pipeline a "reserva_cobrada" al marcar el pago de la reserva o si está en contrato_firmado / propuesta_enviada
+    const isReservation = (p.label || "").toLowerCase().includes("reserva");
+    if (wedding && (isReservation || ["propuesta_enviada", "contrato_firmado"].includes(wedding.status))) {
+      await base44.entities.Wedding.update(wedding.id, { status: "reserva_cobrada" });
+    }
+
     const blob = generateReceiptPDF(wedding, { ...p, paid_date }, extras.filter((x) => x.payment_id === p.id));
     const filename = `Justificante_${(p.label || "pago").replace(/\s+/g, "_")}_${(wedding.couple_names || "").replace(/\s+/g, "_")}.pdf`;
     const { file_uri } = await base44.integrations.Core.UploadPrivateFile({ file: new File([blob], filename, { type: "application/pdf" }) });

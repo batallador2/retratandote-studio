@@ -200,6 +200,15 @@ export const base44 = {
           });
         }
 
+        if (action === "downloadDocument" && content) {
+          const { data: doc } = await supabase.from('documents').select('*').eq('id', content).maybeSingle();
+          return {
+            data: {
+              signed_url: doc?.file_uri || ''
+            }
+          };
+        }
+
         const [{ data: payments }, { data: messages }, { data: photos }, { data: documents }, { data: extras }] = await Promise.all([
           supabase.from('payments').select('*').eq('wedding_id', wedding.id),
           supabase.from('client_messages').select('*').eq('wedding_id', wedding.id).order('created_at', { ascending: true }),
@@ -267,12 +276,17 @@ export const base44 = {
   integrations: {
     Core: {
       UploadPrivateFile: async ({ file }) => {
-        // Mock upload until full storage migration
-        console.log(`Mocking upload of file ${file?.name}`);
-        return { file_uri: `mock_uri_${Date.now()}` };
+        if (!file) return { file_uri: '' };
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve({ file_uri: reader.result });
+          };
+          reader.readAsDataURL(file);
+        });
       },
       CreateFileSignedUrl: async ({ file_uri }) => {
-        return { signed_url: `https://dummyimage.com/600x400/000/fff&text=${file_uri}` };
+        return { signed_url: file_uri || '' };
       }
     }
   }

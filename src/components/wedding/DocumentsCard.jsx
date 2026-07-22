@@ -34,7 +34,31 @@ export default function DocumentsCard({ weddingId, documents, onChanged }) {
 
   const download = async (doc) => {
     const { signed_url } = await base44.integrations.Core.CreateFileSignedUrl({ file_uri: doc.file_uri });
-    window.open(signed_url, "_blank");
+    const url = signed_url || doc.file_uri;
+    if (url) {
+      if (url.startsWith("data:")) {
+        const parts = url.split(";base64,");
+        const contentType = parts[0].replace("data:", "");
+        const raw = window.atob(parts[1]);
+        const uInt8Array = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; ++i) {
+          uInt8Array[i] = raw.charCodeAt(i);
+        }
+        const blob = new Blob([uInt8Array], { type: contentType });
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = `${doc.name || "Documento"}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(blobUrl);
+        }, 1000);
+      } else {
+        window.open(url, "_blank");
+      }
+    }
   };
 
   const toggleVisible = async (doc) => {
