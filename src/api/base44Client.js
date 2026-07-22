@@ -211,13 +211,38 @@ export const base44 = {
           };
         }
 
-        const [{ data: payments }, { data: messages }, { data: photos }, { data: documents }, { data: extras }] = await Promise.all([
+        if (action === "toggleAlbumPick" && content) {
+          const { data: existing } = await supabase.from('album_selections').select('*').eq('wedding_id', wedding.id).eq('asset_id', content).maybeSingle();
+          if (existing) {
+            await supabase.from('album_selections').delete().eq('id', existing.id);
+          } else {
+            await supabase.from('album_selections').insert({ wedding_id: wedding.id, asset_id: content });
+          }
+          return { data: { success: true } };
+        }
+
+        const [{ data: payments }, { data: messages }, { data: photos }, { data: documents }, { data: extras }, { data: picks }] = await Promise.all([
           supabase.from('payments').select('*').eq('wedding_id', wedding.id),
           supabase.from('client_messages').select('*').eq('wedding_id', wedding.id).order('created_at', { ascending: true }),
           supabase.from('gallery_photos').select('*').eq('wedding_id', wedding.id),
           supabase.from('documents').select('*').eq('wedding_id', wedding.id).eq('visible_to_client', true),
-          supabase.from('wedding_extras').select('*').eq('wedding_id', wedding.id)
+          supabase.from('wedding_extras').select('*').eq('wedding_id', wedding.id),
+          supabase.from('album_selections').select('*').eq('wedding_id', wedding.id)
         ]);
+
+        const avance = (photos || [])
+          .filter(p => p.section === 'avance' || p.section === 'official')
+          .map(p => ({ id: p.id, thumb: p.url || p.file_url, preview: p.url || p.file_url, type: 'IMAGE' }));
+
+        const entrega = (photos || [])
+          .filter(p => p.section === 'entrega' || p.section === 'official')
+          .map(p => ({ id: p.id, thumb: p.url || p.file_url, preview: p.url || p.file_url, type: 'IMAGE' }));
+
+        const delivery = {
+          avance,
+          entrega,
+          album_picks: (picks || []).map(pk => pk.asset_id)
+        };
 
         return {
           data: {
@@ -227,7 +252,7 @@ export const base44 = {
             photos: (photos || []).map(normalize),
             documents: (documents || []).map(normalize),
             extras: (extras || []).map(normalize),
-            delivery: null
+            delivery
           }
         };
       }
@@ -283,6 +308,50 @@ export const base44 = {
             assets: (assets || []).map(normalize)
           }
         };
+      }
+
+      if (funcName === "deliveryGallery") {
+        const { action, wedding_id, phase, filename, data, asset_id, content_type } = args;
+
+        if (action === "setup") {
+          await supabase.from('weddings').update({
+            immich_avance_album_id: `avance_${wedding_id}`,
+            immich_entrega_album_id: `entrega_${wedding_id}`
+          }).eq('id', wedding_id);
+          return { data: { success: true } };
+        }
+
+        if (action === "upload" && data) {
+          const mime = content_type || 'image/jpeg';
+          const file_url = `data:${mime};base64,${data}`;
+          await supabase.from('gallery_photos').insert({
+            wedding_id,
+            url: file_url,
+            file_url: file_url,
+            filename: filename || 'file',
+            section: phase || 'avance'
+          });
+          return { data: { success: true } };
+        }
+
+        if (action === "remove" && asset_id) {
+          await supabase.from('gallery_photos').delete().eq('id', asset_id);
+          return { data: { success: true } };
+        }
+
+        if (action === "list") {
+          const { data: photos } = await supabase.from('gallery_photos').select('*').eq('wedding_id', wedding_id);
+          const filtered = (photos || []).filter(p => p.section === phase || p.section === 'official');
+          const assets = filtered.map(p => ({
+            id: p.id,
+            thumb: p.url || p.file_url,
+            preview: p.url || p.file_url,
+            type: (p.filename || '').match(/\.(mp4|mov|avi|webm)$/i) ? 'VIDEO' : 'IMAGE'
+          }));
+          return { data: { assets } };
+        }
+
+        return { data: { assets: [] } };
       }
 
       return { data: { success: true } };
