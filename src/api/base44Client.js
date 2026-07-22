@@ -126,8 +126,110 @@ export const base44 = {
   }),
   functions: {
     invoke: async (funcName, args) => {
-      console.log(`Mocking Edge Function invoke: ${funcName}`, args);
-      return { success: true, message: "Funcionalidad en migración" };
+      const { token, action, content, filename, data: base64Data } = args || {};
+
+      if (funcName === "clientPortal") {
+        const { data: w, error: wErr } = await supabase
+          .from('weddings')
+          .select('*')
+          .eq('portal_token', token)
+          .maybeSingle();
+
+        if (wErr || !w) {
+          return { data: { wedding: null } };
+        }
+
+        const normalize = (item) => item ? {
+          ...item,
+          couple_names: item.couple_names || item.client_name || item.title || '',
+          event_date: item.event_date || item.wedding_date || '',
+          created_date: item.created_date || item.created_at || ''
+        } : null;
+
+        const wedding = normalize(w);
+
+        if (action === "saveBilling" && content) {
+          const { billing_name, billing_nif, billing_address } = content;
+          await supabase.from('weddings').update({
+            billing_name,
+            billing_nif,
+            billing_address
+          }).eq('id', wedding.id);
+          wedding.billing_name = billing_name;
+          wedding.billing_nif = billing_nif;
+          wedding.billing_address = billing_address;
+        }
+
+        if (action === "sendMessage" && content) {
+          await supabase.from('client_messages').insert({
+            wedding_id: wedding.id,
+            sender: 'client',
+            content: content.trim()
+          });
+        }
+
+        const [{ data: payments }, { data: messages }, { data: photos }, { data: documents }, { data: extras }] = await Promise.all([
+          supabase.from('payments').select('*').eq('wedding_id', wedding.id),
+          supabase.from('client_messages').select('*').eq('wedding_id', wedding.id).order('created_at', { ascending: true }),
+          supabase.from('gallery_photos').select('*').eq('wedding_id', wedding.id),
+          supabase.from('documents').select('*').eq('wedding_id', wedding.id).eq('visible_to_client', true),
+          supabase.from('wedding_extras').select('*').eq('wedding_id', wedding.id)
+        ]);
+
+        return {
+          data: {
+            wedding,
+            payments: (payments || []).map(normalize),
+            messages: (messages || []).map(normalize),
+            photos: (photos || []).map(normalize),
+            documents: (documents || []).map(normalize),
+            extras: (extras || []).map(normalize),
+            delivery: null
+          }
+        };
+      }
+
+      if (funcName === "guestArea") {
+        const { data: w, error: wErr } = await supabase
+          .from('weddings')
+          .select('*')
+          .eq('guest_token', token)
+          .maybeSingle();
+
+        if (wErr || !w) {
+          return { data: { wedding: null } };
+        }
+
+        const normalize = (item) => item ? {
+          ...item,
+          couple_names: item.couple_names || item.client_name || item.title || '',
+          event_date: item.event_date || item.wedding_date || '',
+          created_date: item.created_date || item.created_at || ''
+        } : null;
+
+        const wedding = normalize(w);
+
+        if (action === "upload" && base64Data) {
+          const file_url = `data:image/jpeg;base64,${base64Data}`;
+          await supabase.from('gallery_photos').insert({
+            wedding_id: wedding.id,
+            file_url,
+            filename: filename || 'guest_photo.jpg',
+            section: 'guest'
+          });
+        }
+
+        const { data: assets } = await supabase.from('gallery_photos').select('*').eq('wedding_id', wedding.id);
+
+        return {
+          data: {
+            wedding,
+            assets: (assets || []).map(normalize)
+          }
+        };
+      }
+
+      return { data: { success: true } };
     }
   },
   integrations: {
