@@ -37,10 +37,10 @@ function line(doc, y, label, value) {
 export function generateProposalPDF(wedding, pkg) {
   const doc = new jsPDF();
   let y = header(doc, "Propuesta de reportaje de boda");
-  y = line(doc, y, "Pareja", wedding.couple_names);
+  y = line(doc, y, "Pareja", wedding.couple_names || wedding.client_name);
   y = line(doc, y, "Fecha", fmtDate(wedding.event_date));
   y = line(doc, y, "Lugar", wedding.location);
-  y = line(doc, y, "Paquete", wedding.package_name);
+  y = line(doc, y, "Paquete", wedding.package_name || "Personalizado");
   y = line(doc, y, "Precio total", fmtEUR(wedding.total_price));
   if (wedding.extras) y = line(doc, y, "Extras", wedding.extras);
   y += 5;
@@ -73,18 +73,18 @@ export function generateProposalPDF(wedding, pkg) {
 export function generateReceiptPDF(wedding, payment, extras = []) {
   const doc = new jsPDF();
   let y = header(doc, "Justificante de pago");
-  y = line(doc, y, "Cliente", wedding.billing_name || wedding.couple_names);
+  y = line(doc, y, "Cliente", wedding.billing_name || wedding.couple_names || wedding.client_name);
   if (wedding.billing_nif) y = line(doc, y, "DNI / NIF", wedding.billing_nif);
   if (wedding.billing_address) y = line(doc, y, "Dirección", wedding.billing_address);
   y += 3;
-  y = line(doc, y, "Concepto", `${payment.label} · Reportaje de boda de ${wedding.couple_names}`);
+  y = line(doc, y, "Concepto", `${payment.label} · Reportaje de boda de ${wedding.couple_names || wedding.client_name}`);
   y = line(doc, y, "Fecha del evento", fmtDate(wedding.event_date));
-  y = line(doc, y, "Fecha de pago", fmtDate(payment.paid_date));
+  y = line(doc, y, "Fecha de pago", fmtDate(payment.paid_date || new Date()));
   if (extras.length) {
     const base = (payment.amount || 0) - extras.reduce((s, x) => s + (x.amount || 0), 0);
     y = line(doc, y, "Pago según contrato", fmtEUR(base));
     extras.forEach((x) => {
-      y = line(doc, y, "Extra", `${x.concept} · ${fmtEUR(x.amount)}`);
+      y = line(doc, y, "Extra", `${x.concept || x.name} · ${fmtEUR(x.amount)}`);
     });
   }
   y = line(doc, y, "Importe recibido", fmtEUR(payment.amount));
@@ -103,12 +103,14 @@ export function generateContractPDF(wedding) {
   const doc = new jsPDF();
   let y = header(doc, "Contrato de servicios fotográficos");
   y = line(doc, y, "Fotógrafo", `${STUDIO.owner}, profesional dado de alta como autónomo, con Seguro de Responsabilidad Civil.`);
-  y = line(doc, y, "Cliente", wedding.couple_names);
-  y = line(doc, y, "Email", wedding.email);
-  y = line(doc, y, "Teléfono", wedding.phone);
+  y = line(doc, y, "Cliente", wedding.billing_name || wedding.couple_names || wedding.client_name);
+  if (wedding.billing_nif) y = line(doc, y, "DNI / NIF", wedding.billing_nif);
+  if (wedding.billing_address) y = line(doc, y, "Dirección", wedding.billing_address);
+  if (wedding.client_email || wedding.email) y = line(doc, y, "Email", wedding.client_email || wedding.email);
+  if (wedding.phone) y = line(doc, y, "Teléfono", wedding.phone);
   y = line(doc, y, "Fecha del evento", fmtDate(wedding.event_date));
   y = line(doc, y, "Lugar", wedding.location);
-  y = line(doc, y, "Paquete", wedding.package_name);
+  y = line(doc, y, "Paquete", wedding.package_name || "Personalizado");
   y = line(doc, y, "Precio total", fmtEUR(wedding.total_price));
   if (wedding.extras) y = line(doc, y, "Extras", wedding.extras);
   y += 4;
