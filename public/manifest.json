@@ -1,0 +1,15 @@
+{
+  "short_name": "Retratándote",
+  "name": "Retratándote Studio - Gestión de Bodas y Fotografía",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#1A1A18",
+  "theme_color": "#C9A84C",
+  "display": "standalone"
+}
