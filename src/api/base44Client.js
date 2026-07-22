@@ -231,12 +231,12 @@ export const base44 = {
         ]);
 
         const avance = (photos || [])
-          .filter(p => p.section === 'avance' || p.section === 'official')
-          .map(p => ({ id: p.id, thumb: p.url || p.file_url, preview: p.url || p.file_url, type: 'IMAGE' }));
+          .filter(p => p.section === 'avance')
+          .map(p => ({ id: p.id, thumb: p.url || p.file_url, preview: p.url || p.file_url, type: (p.filename || '').match(/\.(mp4|mov|avi|webm)$/i) ? 'VIDEO' : 'IMAGE' }));
 
         const entrega = (photos || [])
-          .filter(p => p.section === 'entrega' || p.section === 'official')
-          .map(p => ({ id: p.id, thumb: p.url || p.file_url, preview: p.url || p.file_url, type: 'IMAGE' }));
+          .filter(p => p.section === 'entrega' || p.section === 'official' || !p.section)
+          .map(p => ({ id: p.id, thumb: p.url || p.file_url, preview: p.url || p.file_url, type: (p.filename || '').match(/\.(mp4|mov|avi|webm)$/i) ? 'VIDEO' : 'IMAGE' }));
 
         const delivery = {
           avance,
