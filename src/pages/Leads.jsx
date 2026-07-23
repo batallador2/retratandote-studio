@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2, XCircle, CalendarCheck, CalendarX, Plus, Phone, Mail, MapPin, Pencil } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { LEAD_STATUS_COLORS } from "@/lib/constants";
 
 export default function Leads() {
@@ -91,6 +93,17 @@ export default function Leads() {
     load();
   };
 
+  const formatDateSafe = (dateStr) => {
+    if (!dateStr) return "";
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return format(d, "d 'de' MMMM yyyy", { locale: es });
+    } catch {
+      return dateStr;
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center pt-32"><div className="w-8 h-8 border-4 border-stone-200 border-t-[#C9A84C] rounded-full animate-spin" /></div>;
   }
@@ -127,7 +140,7 @@ export default function Leads() {
                       )}
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-stone-500">
-                      {lead.event_date && <span>{format(new Date(lead.event_date), "d 'de' MMMM yyyy", { locale: es })}</span>}
+                      {lead.event_date && <span>{formatDateSafe(lead.event_date)}</span>}
                       {lead.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{lead.location}</span>}
                       {lead.email && <a href={`mailto:${lead.email}`} className="flex items-center gap-1 hover:text-[#C9A84C]"><Mail className="w-3 h-3" />{lead.email}</a>}
                       {lead.phone && <a href={`https://wa.me/${lead.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-[#C9A84C]"><Phone className="w-3 h-3" />{lead.phone}</a>}
