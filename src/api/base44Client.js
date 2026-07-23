@@ -354,6 +354,23 @@ export const base44 = {
         return { data: { assets: [] } };
       }
 
+      if (funcName === "archiveWedding") {
+        const { wedding_id } = args;
+        const archived_date = new Date().toISOString().split("T")[0];
+        if (wedding_id) {
+          await supabase.from('weddings').update({
+            archived: true,
+            archived_date
+          }).eq('id', wedding_id);
+        }
+        return {
+          data: {
+            done: true,
+            remaining: 0
+          }
+        };
+      }
+
       return { data: { success: true } };
     }
   },
