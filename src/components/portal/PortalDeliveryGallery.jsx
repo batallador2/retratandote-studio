@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import PortalSection from "@/components/portal/PortalSection";
-import { Heart, X } from "lucide-react";
+import { Heart, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function PortalDeliveryGallery({ delivery, status, token }) {
   const [tab, setTab] = useState(null);
   const [picks, setPicks] = useState(() => new Set(delivery?.album_picks || []));
-  const [lightbox, setLightbox] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState(null);
 
   if (!delivery) return null;
   const showAvance = ["adelanto_entregado", "galeria_entregada", "cerrado"].includes(status) && (delivery.avance || []).length > 0;
@@ -18,9 +18,26 @@ export default function PortalDeliveryGallery({ delivery, status, token }) {
     ...(showEntrega ? [{ key: "entrega", label: "Reportaje completo" }] : []),
   ];
   const active = tab || tabs[0].key;
-  const assets = delivery[active] || [];
-  const videos = assets.filter((a) => a.type === "VIDEO");
-  const images = assets.filter((a) => a.type !== "VIDEO");
+  const rawAssets = delivery[active] || [];
+
+  // Ordenar por nombre de archivo alfanumérico
+  const sortedAssets = [...rawAssets].sort((a, b) =>
+    (a.filename || a.name || "").localeCompare(b.filename || b.name || "", undefined, { numeric: true, sensitivity: "base" })
+  );
+
+  const videos = sortedAssets.filter((a) => a.type === "VIDEO");
+  const images = sortedAssets.filter((a) => a.type !== "VIDEO");
+
+  useEffect(() => {
+    if (selectedIndex === null) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "ArrowRight") setSelectedIndex((prev) => (prev + 1) % images.length);
+      if (e.key === "ArrowLeft") setSelectedIndex((prev) => (prev - 1 + images.length) % images.length);
+      if (e.key === "Escape") setSelectedIndex(null);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedIndex, images.length]);
 
   const toggle = (assetId) => {
     setPicks((prev) => {
@@ -41,6 +58,8 @@ export default function PortalDeliveryGallery({ delivery, status, token }) {
     </button>
   );
 
+  const currentImage = selectedIndex !== null ? images[selectedIndex] : null;
+
   return (
     <PortalSection overline="Vuestras fotos" title="La galería">
       {tabs.length > 1 && (
@@ -58,10 +77,10 @@ export default function PortalDeliveryGallery({ delivery, status, token }) {
         <video key={v.id} controls playsInline poster={v.preview} src={v.video} className="w-full rounded-2xl mb-5 bg-black" />
       ))}
 
-      <div className="columns-2 gap-3 space-y-3">
-        {images.map((a) => (
-          <div key={a.id} className="relative break-inside-avoid rounded-xl overflow-hidden cursor-pointer group" onClick={() => setLightbox(a)}>
-            <img src={a.thumb} alt="" loading="lazy" className="w-full" />
+      <div className="columns-2 md:columns-3 gap-3 space-y-3">
+        {images.map((a, idx) => (
+          <div key={a.id} className="relative break-inside-avoid rounded-xl overflow-hidden cursor-pointer group" onClick={() => setSelectedIndex(idx)}>
+            <img src={a.thumb} alt={a.filename || ""} loading="lazy" className="w-full hover:scale-105 transition-transform duration-300" />
             <HeartBtn id={a.id} className="absolute bottom-2 right-2" />
           </div>
         ))}
@@ -72,13 +91,54 @@ export default function PortalDeliveryGallery({ delivery, status, token }) {
         {picks.size > 0 && <> Lleváis <strong>{picks.size}</strong> elegidas.</>}
       </p>
 
-      {lightbox && (
-        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
-          <img src={lightbox.preview} alt="" className="max-w-full max-h-[88vh] object-contain rounded" />
-          <button className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white" onClick={() => setLightbox(null)}>
-            <X className="w-5 h-5" />
+      {currentImage && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4" onClick={() => setSelectedIndex(null)}>
+          {/* Botón Cerrar */}
+          <button className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors" onClick={() => setSelectedIndex(null)}>
+            <X className="w-6 h-6" />
           </button>
-          <HeartBtn id={lightbox.id} className="absolute bottom-6 right-6 !bg-white/15" />
+
+          {/* Flecha Izquierda */}
+          {images.length > 1 && (
+            <button
+              className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedIndex((prev) => (prev - 1 + images.length) % images.length);
+              }}
+              title="Foto anterior"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+          )}
+
+          {/* Foto Principal */}
+          <img
+            src={currentImage.preview}
+            alt=""
+            className="max-w-full max-h-[88vh] object-contain rounded select-none"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {/* Flecha Derecha */}
+          {images.length > 1 && (
+            <button
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedIndex((prev) => (prev + 1) % images.length);
+              }}
+              title="Siguiente foto"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          )}
+
+          {/* Contador y Botón Favorito en Lightbox */}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full text-white text-xs" onClick={(e) => e.stopPropagation()}>
+            <span>{selectedIndex + 1} / {images.length}</span>
+            <HeartBtn id={currentImage.id} className="!bg-white/20" />
+          </div>
         </div>
       )}
     </PortalSection>

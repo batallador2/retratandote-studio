@@ -221,22 +221,26 @@ export const base44 = {
           return { data: { success: true } };
         }
 
-        const [{ data: payments }, { data: messages }, { data: photos }, { data: documents }, { data: extras }, { data: picks }] = await Promise.all([
+        const [{ data: payments }, { data: messages }, { data: rawPhotos }, { data: documents }, { data: extras }, { data: picks }] = await Promise.all([
           supabase.from('payments').select('*').eq('wedding_id', wedding.id),
           supabase.from('client_messages').select('*').eq('wedding_id', wedding.id).order('created_at', { ascending: true }),
-          supabase.from('gallery_photos').select('*').eq('wedding_id', wedding.id),
+          supabase.from('gallery_photos').select('*').eq('wedding_id', wedding.id).order('filename', { ascending: true }),
           supabase.from('documents').select('*').eq('wedding_id', wedding.id).eq('visible_to_client', true),
           supabase.from('wedding_extras').select('*').eq('wedding_id', wedding.id),
           supabase.from('album_selections').select('*').eq('wedding_id', wedding.id)
         ]);
 
-        const avance = (photos || [])
-          .filter(p => p.section === 'avance')
-          .map(p => ({ id: p.id, thumb: p.url || p.file_url, preview: p.url || p.file_url, type: (p.filename || '').match(/\.(mp4|mov|avi|webm)$/i) ? 'VIDEO' : 'IMAGE' }));
+        const photos = (rawPhotos || []).sort((a, b) => 
+          (a.filename || a.name || '').localeCompare(b.filename || b.name || '', undefined, { numeric: true, sensitivity: 'base' })
+        );
 
-        const entrega = (photos || [])
+        const avance = photos
+          .filter(p => p.section === 'avance')
+          .map(p => ({ id: p.id, filename: p.filename, thumb: p.url || p.file_url, preview: p.url || p.file_url, type: (p.filename || '').match(/\.(mp4|mov|avi|webm)$/i) ? 'VIDEO' : 'IMAGE' }));
+
+        const entrega = photos
           .filter(p => p.section === 'entrega' || p.section === 'official' || !p.section)
-          .map(p => ({ id: p.id, thumb: p.url || p.file_url, preview: p.url || p.file_url, type: (p.filename || '').match(/\.(mp4|mov|avi|webm)$/i) ? 'VIDEO' : 'IMAGE' }));
+          .map(p => ({ id: p.id, filename: p.filename, thumb: p.url || p.file_url, preview: p.url || p.file_url, type: (p.filename || '').match(/\.(mp4|mov|avi|webm)$/i) ? 'VIDEO' : 'IMAGE' }));
 
         const delivery = {
           avance,
