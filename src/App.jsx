@@ -12,6 +12,7 @@ import ScrollToTop from './components/ScrollToTop';
 const Layout = lazy(() => import('@/components/Layout'));
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
 const Leads = lazy(() => import('@/pages/Leads'));
+const Weddings = lazy(() => import('@/pages/Weddings'));
 const Pipeline = lazy(() => import('@/pages/Pipeline'));
 const WeddingDetail = lazy(() => import('@/pages/WeddingDetail'));
 const CalendarPage = lazy(() => import('@/pages/CalendarPage'));
@@ -60,6 +61,7 @@ const AuthenticatedApp = () => {
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/leads" element={<Leads />} />
+          <Route path="/bodas" element={<Weddings />} />
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/boda/:id" element={<WeddingDetail />} />
           <Route path="/calendario" element={<CalendarPage />} />

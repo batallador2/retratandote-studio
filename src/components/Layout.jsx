@@ -1,10 +1,11 @@
 import { Outlet, NavLink } from "react-router-dom";
 import HelpDialog from "@/components/HelpDialog";
-import { LayoutDashboard, Inbox, KanbanSquare, CalendarDays, BarChart3, Settings, Camera, FileText } from "lucide-react";
+import { LayoutDashboard, Inbox, KanbanSquare, CalendarDays, BarChart3, Settings, Camera, FileText, Heart } from "lucide-react";
 
 const nav = [
   { to: "/", label: "Panel", icon: LayoutDashboard },
   { to: "/leads", label: "Solicitudes", icon: Inbox },
+  { to: "/bodas", label: "Bodas", icon: Heart },
   { to: "/pipeline", label: "Pipeline", icon: KanbanSquare },
   { to: "/calendario", label: "Calendario", icon: CalendarDays },
   { to: "/estadisticas", label: "Estadísticas", icon: BarChart3 },

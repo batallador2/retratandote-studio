@@ -10,9 +10,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, XCircle, CalendarCheck, CalendarX, Plus, Phone, Mail, MapPin } from "lucide-react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { CheckCircle2, XCircle, CalendarCheck, CalendarX, Plus, Phone, Mail, MapPin, Pencil } from "lucide-react";
 import { LEAD_STATUS_COLORS } from "@/lib/constants";
 
 export default function Leads() {
@@ -24,6 +22,8 @@ export default function Leads() {
   const [convertLead, setConvertLead] = useState(null);
   const [showNew, setShowNew] = useState(false);
   const [discardLead, setDiscardLead] = useState(null);
+  const [editLead, setEditLead] = useState(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", event_date: "", location: "", message: "", status: "nuevo" });
   const [form, setForm] = useState({ name: "", email: "", phone: "", event_date: "", location: "", message: "" });
 
   const load = () => {
@@ -60,6 +60,34 @@ export default function Leads() {
     await base44.entities.Lead.create({ ...form, event_date: form.event_date || undefined, source: "whatsapp", status: "nuevo" });
     setShowNew(false);
     setForm({ name: "", email: "", phone: "", event_date: "", location: "", message: "" });
+    load();
+  };
+
+  const openEdit = (lead) => {
+    setEditLead(lead);
+    setEditForm({
+      name: lead.name || "",
+      email: lead.email || "",
+      phone: lead.phone || "",
+      event_date: lead.event_date || "",
+      location: lead.location || "",
+      message: lead.message || "",
+      status: lead.status || "nuevo",
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editLead) return;
+    await base44.entities.Lead.update(editLead.id, {
+      name: editForm.name,
+      email: editForm.email,
+      phone: editForm.phone,
+      event_date: editForm.event_date || undefined,
+      location: editForm.location,
+      message: editForm.message,
+      status: editForm.status,
+    });
+    setEditLead(null);
     load();
   };
 
@@ -106,21 +134,26 @@ export default function Leads() {
                     </div>
                     {lead.message && <p className="text-sm text-stone-600 mt-2 bg-stone-50 rounded-lg p-3">{lead.message}</p>}
                   </div>
-                  {lead.status !== "convertido" && lead.status !== "descartado" && (
-                    <div className="flex flex-wrap gap-2">
-                      {lead.status === "nuevo" && (
-                        <Button size="sm" variant="outline" onClick={() => setStatus(lead, "contactado")}>
-                          <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Contactado
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <Button size="sm" variant="ghost" className="text-stone-400 hover:text-stone-700" title="Editar solicitud" onClick={() => openEdit(lead)}>
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    {lead.status !== "convertido" && lead.status !== "descartado" && (
+                      <>
+                        {lead.status === "nuevo" && (
+                          <Button size="sm" variant="outline" onClick={() => setStatus(lead, "contactado")}>
+                            <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Contactado
+                          </Button>
+                        )}
+                        <Button size="sm" className="bg-[#C9A84C] hover:bg-[#b8983f] text-[#1A1A18]" onClick={() => setConvertLead(lead)}>
+                          Convertir en encargo
                         </Button>
-                      )}
-                      <Button size="sm" className="bg-[#C9A84C] hover:bg-[#b8983f] text-[#1A1A18]" onClick={() => setConvertLead(lead)}>
-                        Convertir en encargo
-                      </Button>
-                      <Button size="sm" variant="ghost" className="text-stone-400" title="Descartar solicitud" onClick={() => setDiscardLead(lead)}>
-                        <XCircle className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  )}
+                        <Button size="sm" variant="ghost" className="text-stone-400 hover:text-red-600" title="Descartar solicitud" onClick={() => setDiscardLead(lead)}>
+                          <XCircle className="w-4 h-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -151,6 +184,25 @@ export default function Leads() {
       {convertLead && (
         <ConvertLeadDialog lead={convertLead} packages={packages} open={!!convertLead} onOpenChange={(o) => !o && setConvertLead(null)} />
       )}
+
+      {/* Modal de edición de solicitud */}
+      <Dialog open={!!editLead} onOpenChange={(o) => !o && setEditLead(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar solicitud de cliente</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="sm:col-span-2"><Label>Nombre del cliente *</Label><Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
+            <div><Label>Email</Label><Input value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} /></div>
+            <div><Label>Teléfono</Label><Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} /></div>
+            <div><Label>Fecha del evento</Label><Input type="date" value={editForm.event_date} onChange={(e) => setEditForm({ ...editForm, event_date: e.target.value })} /></div>
+            <div><Label>Lugar</Label><Input value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} /></div>
+            <div className="sm:col-span-2"><Label>Mensaje / Notas</Label><Textarea value={editForm.message} onChange={(e) => setEditForm({ ...editForm, message: e.target.value })} rows={2} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditLead(null)}>Cancelar</Button>
+            <Button onClick={saveEdit} disabled={!editForm.name} className="bg-[#1A1A18] hover:bg-stone-800">Guardar cambios</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showNew} onOpenChange={setShowNew}>
         <DialogContent>

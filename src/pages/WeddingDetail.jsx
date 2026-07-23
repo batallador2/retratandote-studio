@@ -16,7 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, FileText, FileSignature, Link2, Copy, Check, ExternalLink } from "lucide-react";
+import { ArrowLeft, FileText, FileSignature, Link2, Copy, Check, ExternalLink, Pencil } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { format, subMonths, addWeeks } from "date-fns";
 import { es } from "date-fns/locale";
 import { WEDDING_STATUSES, statusInfo, fmtEUR } from "@/lib/constants";
@@ -35,6 +36,9 @@ export default function WeddingDetail() {
   const [copied, setCopied] = useState(false);
   const [galleryUrl, setGalleryUrl] = useState("");
   const [notes, setNotes] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [editNotice, setEditNotice] = useState("");
 
   const load = useCallback(() => {
     Promise.all([
@@ -55,6 +59,16 @@ export default function WeddingDetail() {
       setWeddingExtras(ex);
       setGalleryUrl(w.gallery_url || "");
       setNotes(w.notes || "");
+      setEditForm({
+        couple_names: w.couple_names || "",
+        client_name: w.client_name || w.billing_name || "",
+        client_email: w.client_email || w.email || "",
+        phone: w.phone || "",
+        event_date: w.event_date || "",
+        location: w.location || "",
+        package_name: w.package_name || "",
+        total_price: w.total_price || 0,
+      });
       setLoading(false);
     });
   }, [id]);
@@ -70,6 +84,40 @@ export default function WeddingDetail() {
 
   const updateStatus = async (status) => {
     await base44.entities.Wedding.update(id, { status });
+    load();
+  };
+
+  const handleEditSave = async () => {
+    const oldDate = wedding.event_date;
+    const newDate = editForm.event_date;
+
+    await base44.entities.Wedding.update(id, {
+      couple_names: editForm.couple_names,
+      client_name: editForm.client_name,
+      client_email: editForm.client_email,
+      phone: editForm.phone,
+      event_date: newDate || undefined,
+      location: editForm.location,
+      package_name: editForm.package_name,
+      total_price: Number(editForm.total_price || 0),
+    });
+
+    if (newDate && newDate !== oldDate) {
+      try {
+        const blocks = await base44.entities.CalendarBlock.filter({});
+        const match = (blocks || []).find((b) => (b.title || "").includes(wedding.couple_names) || (b.title || "").includes(editForm.couple_names));
+        if (match) {
+          await base44.entities.CalendarBlock.update(match.id, { date: newDate });
+        } else {
+          await base44.entities.CalendarBlock.create({ date: newDate, type: "reservada", title: `Boda ${editForm.couple_names}` });
+        }
+      } catch (e) {
+        console.error("Error sincronizando calendario:", e);
+      }
+    }
+
+    setEditNotice("✓ Datos del encargo actualizados. Si has cambiado la fecha, precio o lugar, descarga el nuevo Contrato o Propuesta PDF.");
+    setEditOpen(false);
     load();
   };
 
@@ -116,6 +164,9 @@ export default function WeddingDetail() {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl md:text-3xl font-semibold text-[#1A1A18] tracking-tight">{wedding.couple_names}</h1>
           <Badge className={info.color + " border-0"}>{info.label}</Badge>
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="ml-auto text-xs">
+            <Pencil className="w-3.5 h-3.5 mr-1.5" /> Editar encargo
+          </Button>
         </div>
         <p className="text-sm text-stone-500 mt-1">
           {wedding.event_date ? format(new Date(wedding.event_date), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es }) : "Fecha por confirmar"}
@@ -123,6 +174,12 @@ export default function WeddingDetail() {
           {wedding.package_name && ` · ${wedding.package_name}`}
           {wedding.total_price ? ` · ${fmtEUR(wedding.total_price)}` : ""}
         </p>
+        {editNotice && (
+          <div className="mt-3 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center justify-between">
+            <span>{editNotice}</span>
+            <button onClick={() => setEditNotice("")} className="text-emerald-600 hover:text-emerald-900 font-bold ml-2">✕</button>
+          </div>
+        )}
       </div>
 
       <div className="px-6 md:px-10 grid lg:grid-cols-3 gap-6 pb-12">
@@ -175,8 +232,6 @@ export default function WeddingDetail() {
 
           <DeliveryGalleryCard wedding={wedding} onChanged={load} />
 
-          <GalleryCard weddingId={id} photos={photos} onChanged={load} />
-
           <DocumentsCard weddingId={id} documents={documents} onChanged={load} />
 
           <GuestAreaCard wedding={wedding} onChanged={load} />
@@ -223,6 +278,60 @@ export default function WeddingDetail() {
           </Card>
         </div>
       </div>
+
+      {/* Modal de edición de datos de la boda */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar datos del encargo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label>Nombre de la Pareja</Label>
+              <Input value={editForm.couple_names} onChange={(e) => setEditForm({ ...editForm, couple_names: e.target.value })} placeholder="Ej: Marta & Carlos" />
+            </div>
+            <div>
+              <Label>Fecha del evento</Label>
+              <Input type="date" value={editForm.event_date} onChange={(e) => setEditForm({ ...editForm, event_date: e.target.value })} />
+            </div>
+            <div>
+              <Label>Lugar de la boda</Label>
+              <Input value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} placeholder="Ej: Finca El Tomillar, Madrid" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Email de contacto</Label>
+                <Input value={editForm.client_email} onChange={(e) => setEditForm({ ...editForm, client_email: e.target.value })} placeholder="email@ejemplo.com" />
+              </div>
+              <div>
+                <Label>Teléfono</Label>
+                <Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} placeholder="600000000" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Paquete contratado</Label>
+                <Select value={editForm.package_name} onValueChange={(val) => setEditForm({ ...editForm, package_name: val })}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                  <SelectContent>
+                    {packages.map((pk) => (
+                      <SelectItem key={pk.id} value={pk.name}>{pk.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Precio total (€)</Label>
+                <Input type="number" value={editForm.total_price} onChange={(e) => setEditForm({ ...editForm, total_price: e.target.value })} placeholder="2850" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
+            <Button onClick={handleEditSave} className="bg-[#C9A84C] hover:bg-[#b8983f] text-[#1A1A18]">Guardar cambios</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

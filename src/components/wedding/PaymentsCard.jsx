@@ -49,6 +49,32 @@ export default function PaymentsCard({ payments, wedding, extras = [], onChanged
     onChanged();
   };
 
+  const unmarkPaid = async (p) => {
+    if (!confirm(`¿Confirmas que deseas deshacer el cobro de "${p.label}" (${fmtEUR(p.amount)})? Se marcará como pendiente y se eliminará el justificante de pago generado por error.`)) {
+      return;
+    }
+    setBusy(p.id);
+    await base44.entities.Payment.update(p.id, { paid: false, paid_date: null });
+
+    const isReservation = (p.label || "").toLowerCase().includes("reserva");
+    if (wedding && isReservation && wedding.status === "reserva_cobrada") {
+      await base44.entities.Wedding.update(wedding.id, { status: "contrato_firmado" });
+    }
+
+    try {
+      const docs = await base44.entities.Document.filter({ wedding_id: wedding.id });
+      const receiptDoc = (docs || []).find((d) => d.doc_type === "justificante" && d.name.includes(p.label));
+      if (receiptDoc) {
+        await base44.entities.Document.delete(receiptDoc.id);
+      }
+    } catch (e) {
+      console.error("Error al eliminar justificante previo:", e);
+    }
+
+    setBusy(null);
+    onChanged();
+  };
+
   const total = payments.reduce((s, p) => s + (p.amount || 0), 0);
   const paid = payments.filter((p) => p.paid).reduce((s, p) => s + (p.amount || 0), 0);
 
@@ -84,7 +110,11 @@ export default function PaymentsCard({ payments, wedding, extras = [], onChanged
               </p>
             </div>
             <Badge variant="outline" className="font-semibold">{fmtEUR(p.amount)}</Badge>
-            {!p.paid && (
+            {p.paid ? (
+              <Button size="sm" variant="ghost" className="text-xs text-stone-400 hover:text-red-600" disabled={busy === p.id} onClick={() => unmarkPaid(p)}>
+                Deshacer
+              </Button>
+            ) : (
               <div className="flex gap-1.5">
                 {(wedding?.phone || wedding?.email) && (
                   <Button size="sm" variant="ghost" className="text-[#8a7233]" title="Enviar recordatorio" onClick={() => remind(p)}>
