@@ -16,12 +16,24 @@ export default function LeadForm() {
   const submit = async (e) => {
     e.preventDefault();
     setSending(true);
+
+    const fullMessage = [
+      form.event_type ? `Tipo de reportaje: ${form.event_type.toUpperCase()}` : "",
+      form.message ? form.message : ""
+    ].filter(Boolean).join("\n");
+
     await base44.entities.Lead.create({
-      ...form,
+      name: form.name,
+      email: form.email || "",
+      phone: form.phone || "",
       event_date: form.event_date || undefined,
+      location: form.location || "",
+      message: fullMessage,
+      notes: fullMessage,
       source: "web",
       status: "nuevo",
     });
+
     setSending(false);
     setSent(true);
   };

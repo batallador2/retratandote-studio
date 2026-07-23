@@ -122,11 +122,34 @@ export const base44 = {
             delete cleanPayload.email;
             delete cleanPayload.phone;
           }
+          if (tableName === 'leads') {
+            cleanPayload.notes = cleanPayload.notes || cleanPayload.message || '';
+            cleanPayload.message = cleanPayload.message || cleanPayload.notes || '';
+            cleanPayload.source = cleanPayload.source || 'web';
+            cleanPayload.status = cleanPayload.status || 'nuevo';
+            delete cleanPayload.event_type;
+          }
           if (tableName === 'wedding_extras') {
             cleanPayload.name = cleanPayload.name || cleanPayload.concept || 'Extra';
             cleanPayload.concept = cleanPayload.concept || cleanPayload.name || 'Extra';
           }
-          const { data, error } = await supabase.from(tableName).insert(cleanPayload).select().single();
+          let { data, error } = await supabase.from(tableName).insert(cleanPayload).select().single();
+          if (error && tableName === 'leads') {
+            console.warn(`Attempting fallback insert for ${tableName}:`, error);
+            const fallback = {
+              name: cleanPayload.name || 'Cliente',
+              email: cleanPayload.email || '',
+              phone: cleanPayload.phone || '',
+              event_date: cleanPayload.event_date || undefined,
+              status: cleanPayload.status || 'nuevo',
+              source: cleanPayload.source || 'web',
+              notes: cleanPayload.notes || cleanPayload.message || '',
+              location: cleanPayload.location || ''
+            };
+            const res = await supabase.from(tableName).insert(fallback).select().single();
+            data = res.data;
+            error = res.error;
+          }
           if (error) console.error(`Error creating ${tableName}:`, error);
           return normalizeItem(data);
         },
