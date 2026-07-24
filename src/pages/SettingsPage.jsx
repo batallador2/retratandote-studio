@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Copy, Check } from "lucide-react";
 import ArchiveSettingsCard from "@/components/settings/ArchiveSettingsCard";
 import ExtraServicesCard from "@/components/settings/ExtraServicesCard";
+import UsersSettingsCard from "@/components/settings/UsersSettingsCard";
 
 const empty = { name: "", price_min: "", price_max: "", description: "", features: "", highlight: false, order: 0 };
 
@@ -65,6 +66,8 @@ export default function SettingsPage() {
       </PageHeader>
 
       <div className="px-6 md:px-10 space-y-6 pb-12">
+        <UsersSettingsCard />
+
         <Card className="border-stone-200 shadow-sm">
           <CardContent className="p-5">
             <h3 className="font-medium text-[#1A1A18] mb-2">Formulario de solicitud para retratandote.es</h3>
