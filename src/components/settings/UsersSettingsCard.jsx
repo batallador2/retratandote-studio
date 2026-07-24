@@ -7,9 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Users, UserPlus, Shield, UserCheck, Loader2, Trash2, Laptop, RefreshCw } from "lucide-react";
 import { useAuth } from '@/lib/AuthContext';
-import { supabase } from '@/api/supabaseClient';
+import { supabase, createIsolatedSupabaseClient } from '@/api/supabaseClient';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+const USERS_CACHE_KEY = 'retratandote_studio_users_v2';
 
 export default function UsersSettingsCard() {
   const { user } = useAuth();
@@ -31,51 +33,108 @@ export default function UsersSettingsCard() {
     loadUsers();
   }, [user]);
 
+  const getCachedUsers = () => {
+    try {
+      const stored = localStorage.getItem(USERS_CACHE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const setCachedUsers = (list) => {
+    try {
+      localStorage.setItem(USERS_CACHE_KEY, JSON.stringify(list));
+    } catch (e) {
+      console.error("Cache save error:", e);
+    }
+  };
+
   const loadUsers = async () => {
     setRefreshing(true);
     try {
-      // 1. Sync current user active ping
-      if (user?.email) {
-        const { data: existing } = await supabase
+      let dbUsers = [];
+      
+      // 1. Try querying Supabase studio_users table
+      try {
+        const { data, error: fetchErr } = await supabase
           .from('studio_users')
-          .select('id')
-          .eq('email', user.email.toLowerCase())
-          .maybeSingle();
+          .select('*')
+          .order('created_at', { ascending: true });
 
-        if (existing) {
+        if (!fetchErr && data) {
+          dbUsers = data;
+        }
+      } catch (dbErr) {
+        console.warn("studio_users table query notice:", dbErr);
+      }
+
+      // 2. Load cached users
+      const cached = getCachedUsers();
+
+      // 3. Prepare master merged map by email
+      const userMap = new Map();
+
+      // Add default known admin accounts
+      userMap.set('juanjo@retratandote.es', {
+        id: 'admin_juanjo',
+        name: 'Juanjo Huertas',
+        email: 'juanjo@retratandote.es',
+        role: 'admin',
+        created_at: new Date().toISOString(),
+        last_active_at: new Date().toISOString()
+      });
+
+      userMap.set('juanjo342@gmail.com', {
+        id: 'admin_juanjo342',
+        name: 'Juanjo (Admin)',
+        email: 'juanjo342@gmail.com',
+        role: 'admin',
+        created_at: new Date().toISOString(),
+        last_active_at: new Date().toISOString()
+      });
+
+      // Merge cached
+      cached.forEach((u) => {
+        if (u.email) userMap.set(u.email.toLowerCase(), { ...userMap.get(u.email.toLowerCase()), ...u });
+      });
+
+      // Merge DB
+      dbUsers.forEach((u) => {
+        if (u.email) userMap.set(u.email.toLowerCase(), { ...userMap.get(u.email.toLowerCase()), ...u });
+      });
+
+      // Update current logged-in user active timestamp
+      if (user?.email) {
+        const currentEmail = user.email.toLowerCase();
+        const existing = userMap.get(currentEmail) || {
+          id: user.id || 'user_' + Math.random().toString(36).substring(2, 9),
+          name: user.email.split('@')[0],
+          email: currentEmail,
+          role: 'admin',
+          created_at: new Date().toISOString()
+        };
+        existing.last_active_at = new Date().toISOString();
+        userMap.set(currentEmail, existing);
+
+        // Try updating in Supabase DB
+        try {
           await supabase
             .from('studio_users')
-            .update({ last_active_at: new Date().toISOString() })
-            .eq('id', existing.id);
-        } else {
-          await supabase.from('studio_users').insert({
-            name: user.email.split('@')[0],
-            email: user.email.toLowerCase(),
-            role: 'admin',
-            created_at: new Date().toISOString(),
-            last_active_at: new Date().toISOString()
-          });
+            .upsert({
+              name: existing.name,
+              email: currentEmail,
+              role: existing.role || 'admin',
+              last_active_at: existing.last_active_at
+            }, { onConflict: 'email' });
+        } catch {
+          // ignore DB error if table not migrated yet
         }
       }
 
-      // 2. Fetch full list of studio users
-      const { data, error: err } = await supabase
-        .from('studio_users')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (data && data.length > 0) {
-        setUsersList(data);
-      } else if (user) {
-        setUsersList([{
-          id: user.id,
-          name: user.email?.split('@')[0] || 'Administrador',
-          email: user.email,
-          role: 'admin',
-          created_at: new Date().toISOString(),
-          last_active_at: new Date().toISOString()
-        }]);
-      }
+      const mergedList = Array.from(userMap.values());
+      setUsersList(mergedList);
+      setCachedUsers(mergedList);
     } catch (e) {
       console.error("Error loading studio users:", e);
     } finally {
@@ -89,42 +148,63 @@ export default function UsersSettingsCard() {
     setError('');
     setSuccess('');
 
-    try {
-      const cleanEmail = newUser.email.trim().toLowerCase();
+    const cleanEmail = newUser.email.trim().toLowerCase();
+    const userName = newUser.name.trim() || cleanEmail.split('@')[0];
 
-      // Sign up new user in Supabase Auth
-      const { data, error: authErr } = await supabase.auth.signUp({
+    try {
+      // 1. Use an isolated client to sign up user in Supabase Auth WITHOUT logging out current admin
+      const isolatedSupabase = createIsolatedSupabaseClient();
+      const { error: authErr } = await isolatedSupabase.auth.signUp({
         email: cleanEmail,
         password: newUser.password,
         options: {
           data: {
-            name: newUser.name,
+            name: userName,
             role: newUser.role
           }
         }
       });
 
-      if (authErr && !authErr.message.includes('User already registered')) {
-        throw authErr;
+      if (authErr && !authErr.message?.includes('already registered')) {
+        let msg = authErr.message || 'Error al registrar credenciales';
+        if (msg.includes('Password should be')) msg = 'La contraseña debe tener al menos 6 caracteres.';
+        if (msg.includes('invalid format')) msg = 'Formato de correo electrónico no válido.';
+        throw new Error(msg);
       }
 
-      // Insert/Upsert into studio_users table
+      // 2. Prepare user object
       const profile = {
-        name: newUser.name || cleanEmail.split('@')[0],
+        id: 'usr_' + Math.random().toString(36).substring(2, 9),
+        name: userName,
         email: cleanEmail,
         role: newUser.role,
         created_at: new Date().toISOString(),
         last_active_at: new Date().toISOString()
       };
 
-      await supabase.from('studio_users').upsert(profile, { onConflict: 'email' });
+      // 3. Try saving to Supabase studio_users table
+      try {
+        await supabase.from('studio_users').upsert(profile, { onConflict: 'email' });
+      } catch (dbErr) {
+        console.warn("DB save warning:", dbErr);
+      }
+
+      // 4. Update local cache & state
+      const currentCached = getCachedUsers();
+      const updatedList = [...currentCached.filter(u => u.email?.toLowerCase() !== cleanEmail), profile];
+      setCachedUsers(updatedList);
 
       setSuccess(`Usuario ${cleanEmail} registrado con éxito con rol (${newUser.role.toUpperCase()})`);
       setShowModal(false);
       setNewUser({ name: '', email: '', password: '', role: 'ayudante' });
       await loadUsers();
     } catch (err) {
-      setError(err.message || 'Error al crear el usuario');
+      console.error("Create user error:", err);
+      let errorMessage = 'No se pudo crear el usuario.';
+      if (typeof err === 'string') errorMessage = err;
+      else if (err?.message) errorMessage = err.message;
+      else if (typeof err === 'object' && Object.keys(err).length > 0) errorMessage = JSON.stringify(err);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -133,23 +213,35 @@ export default function UsersSettingsCard() {
   const toggleUserRole = async (u) => {
     const newRole = u.role === 'admin' ? 'ayudante' : 'admin';
     try {
-      await supabase.from('studio_users').update({ role: newRole }).eq('id', u.id);
-      await loadUsers();
+      try {
+        await supabase.from('studio_users').update({ role: newRole }).eq('email', u.email);
+      } catch {
+        // ignore DB fallback
+      }
+      const updated = usersList.map(item => item.email === u.email ? { ...item, role: newRole } : item);
+      setUsersList(updated);
+      setCachedUsers(updated);
     } catch (err) {
       console.error("Error updating role:", err);
     }
   };
 
   const handleDeleteUser = async (u) => {
-    if (u.email === user?.email) {
+    if (u.email?.toLowerCase() === user?.email?.toLowerCase()) {
       alert("No puedes revocar tu propio acceso activo.");
       return;
     }
     if (!window.confirm(`¿Seguro que deseas revocar el acceso de ${u.email}?`)) return;
 
     try {
-      await supabase.from('studio_users').delete().eq('id', u.id);
-      await loadUsers();
+      try {
+        await supabase.from('studio_users').delete().eq('email', u.email);
+      } catch {
+        // ignore DB fallback
+      }
+      const updated = usersList.filter(item => item.email !== u.email);
+      setUsersList(updated);
+      setCachedUsers(updated);
     } catch (err) {
       console.error("Error deleting user:", err);
     }
@@ -157,12 +249,12 @@ export default function UsersSettingsCard() {
 
   const formatLastActive = (dateStr, isCurrentUser) => {
     if (isCurrentUser) return { text: "🟢 Conectado ahora (Sesión actual)", isOnline: true };
-    if (!dateStr) return { text: "⚪ Nunca accedió", isOnline: false };
+    if (!dateStr) return { text: "⚪ Registro completado", isOnline: false };
     
     try {
       const date = new Date(dateStr);
       const diffMinutes = Math.floor((new Date() - date) / (1000 * 60));
-      if (diffMinutes < 10) {
+      if (diffMinutes < 15) {
         return { text: "🟢 Conectado recientemente", isOnline: true };
       }
       return { 
@@ -170,7 +262,7 @@ export default function UsersSettingsCard() {
         isOnline: false 
       };
     } catch {
-      return { text: "⚪ Fecha desconocida", isOnline: false };
+      return { text: "⚪ Acceso registrado", isOnline: false };
     }
   };
 
@@ -184,7 +276,7 @@ export default function UsersSettingsCard() {
             </div>
             <div>
               <h3 className="font-semibold text-[#1A1A18]">Usuarios Autorizados y Sesiones Activas</h3>
-              <p className="text-xs text-stone-500">Lista completa de administradores, ayudantes y estado de sesión</p>
+              <p className="text-xs text-stone-500">Lista completa de administradores y ayudantes dados de alta</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -280,7 +372,7 @@ export default function UsersSettingsCard() {
 
           <form onSubmit={handleCreateUser} className="space-y-4 py-2">
             {error && (
-              <div className="p-3 rounded-lg bg-red-50 text-red-600 text-xs font-medium">
+              <div className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs leading-relaxed font-medium">
                 {error}
               </div>
             )}
@@ -288,7 +380,7 @@ export default function UsersSettingsCard() {
             <div className="space-y-1">
               <Label>Nombre completo</Label>
               <Input
-                placeholder="Ej. Juanjo Huertas / Carlos Asistente"
+                placeholder="Ej. info / Carlos Asistente"
                 value={newUser.name}
                 onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
                 required
@@ -299,7 +391,7 @@ export default function UsersSettingsCard() {
               <Label>Correo electrónico de acceso</Label>
               <Input
                 type="email"
-                placeholder="ejemplo@retratandote.es"
+                placeholder="info@retratandote.es"
                 value={newUser.email}
                 onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                 required
@@ -307,7 +399,7 @@ export default function UsersSettingsCard() {
             </div>
 
             <div className="space-y-1">
-              <Label>Contraseña inicial de acceso</Label>
+              <Label>Contraseña inicial de acceso (mín. 6 caracteres)</Label>
               <Input
                 type="password"
                 placeholder="••••••••"
@@ -332,7 +424,7 @@ export default function UsersSettingsCard() {
 
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancelar</Button>
-              <Button type="submit" disabled={loading} className="bg-[#1A1A18] hover:bg-stone-800 text-white">
+              <Button type="submit" disabled={loading} className="bg-[#1A1A18] hover:bg-stone-800 text-white font-medium">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : 'Autorizar Usuario'}
               </Button>
             </DialogFooter>

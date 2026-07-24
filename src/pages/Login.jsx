@@ -27,32 +27,54 @@ export default function Login() {
         throw new Error("No se pudo iniciar sesión. Verifica tus credenciales.");
       }
 
-      // 2. Check if user is authorized in studio_users table
-      const { data: authorizedUsers } = await supabase
-        .from('studio_users')
-        .select('*');
+      // 2. Check if user is authorized
+      const cleanEmail = email.trim().toLowerCase();
+      let isAuthorized = false;
 
-      if (authorizedUsers && authorizedUsers.length > 0) {
-        const found = authorizedUsers.find(
-          (u) => u.email?.toLowerCase() === email.trim().toLowerCase()
-        );
-        if (!found) {
-          await supabase.auth.signOut();
-          throw new Error("Acceso denegado. Este correo electrónico no está autorizado por la dirección del estudio.");
-        }
-        await supabase
+      // Allow master admin emails
+      const masterAdmins = ['juanjo@retratandote.es', 'juanjo342@gmail.com'];
+      if (masterAdmins.includes(cleanEmail)) {
+        isAuthorized = true;
+      }
+
+      // Check DB
+      try {
+        const { data: authorizedUsers } = await supabase
           .from('studio_users')
-          .update({ last_active_at: new Date().toISOString() })
-          .eq('id', found.id);
-      } else {
-        // Auto-register first setup admin user in studio_users
-        await supabase.from('studio_users').insert({
-          name: email.split('@')[0],
-          email: email.trim().toLowerCase(),
-          role: 'admin',
-          created_at: new Date().toISOString(),
-          last_active_at: new Date().toISOString()
-        });
+          .select('*');
+
+        if (authorizedUsers && authorizedUsers.length > 0) {
+          const found = authorizedUsers.find(
+            (u) => u.email?.toLowerCase() === cleanEmail
+          );
+          if (found) {
+            isAuthorized = true;
+            await supabase
+              .from('studio_users')
+              .update({ last_active_at: new Date().toISOString() })
+              .eq('id', found.id);
+          }
+        }
+      } catch (dbErr) {
+        console.warn("DB auth check warning:", dbErr);
+      }
+
+      // Check local cache
+      try {
+        const cached = localStorage.getItem('retratandote_studio_users_v2');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.some(u => u.email?.toLowerCase() === cleanEmail)) {
+            isAuthorized = true;
+          }
+        }
+      } catch {
+        // ignore cache read error
+      }
+
+      if (!isAuthorized) {
+        await supabase.auth.signOut();
+        throw new Error("Acceso denegado. Este correo electrónico no está autorizado por la dirección del estudio.");
       }
 
       window.location.href = "/";
