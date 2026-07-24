@@ -33,20 +33,25 @@ export default function Login() {
         .select('*');
 
       if (authorizedUsers && authorizedUsers.length > 0) {
-        const isAuthorized = authorizedUsers.some(
+        const found = authorizedUsers.find(
           (u) => u.email?.toLowerCase() === email.trim().toLowerCase()
         );
-        if (!isAuthorized) {
+        if (!found) {
           await supabase.auth.signOut();
           throw new Error("Acceso denegado. Este correo electrónico no está autorizado por la dirección del estudio.");
         }
+        await supabase
+          .from('studio_users')
+          .update({ last_active_at: new Date().toISOString() })
+          .eq('id', found.id);
       } else {
         // Auto-register first setup admin user in studio_users
         await supabase.from('studio_users').insert({
           name: email.split('@')[0],
           email: email.trim().toLowerCase(),
           role: 'admin',
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          last_active_at: new Date().toISOString()
         });
       }
 
