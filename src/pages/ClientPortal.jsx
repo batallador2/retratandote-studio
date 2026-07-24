@@ -6,6 +6,7 @@ import PortalGallery from "@/components/portal/PortalGallery";
 import PortalDeliveryGallery from "@/components/portal/PortalDeliveryGallery";
 import PortalDocuments from "@/components/portal/PortalDocuments";
 import PortalBillingForm from "@/components/portal/PortalBillingForm";
+import PortalContractSignature from "@/components/portal/PortalContractSignature";
 import PortalSection from "@/components/portal/PortalSection";
 import PortalHelpDialog from "@/components/portal/PortalHelpDialog";
 import { Button } from "@/components/ui/button";
@@ -132,6 +133,8 @@ export default function ClientPortal() {
         {!(wedding.billing_name && wedding.billing_nif && wedding.billing_address) && wedding.status !== "cerrado" && (
           <PortalBillingForm token={token} onSaved={load} />
         )}
+
+        <PortalContractSignature wedding={wedding} token={token} onSigned={load} />
 
         {(wedding.package_name || wedding.total_price) && (
           <PortalSection overline="Vuestro paquete" title={wedding.package_name || "Personalizado"}>

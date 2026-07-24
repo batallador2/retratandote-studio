@@ -217,6 +217,34 @@ export const base44 = {
           wedding.billing_address = billing_address;
         }
 
+        if (action === "signContract") {
+          const signDate = args.contract_signed_date || new Date().toISOString();
+          const newStatus = ["propuesta_enviada", "leads", "contacto_inicial"].includes(wedding.status)
+            ? "contrato_firmado"
+            : wedding.status;
+
+          await supabase.from('weddings').update({
+            contract_signed: true,
+            contract_signed_date: signDate,
+            status: newStatus
+          }).eq('id', wedding.id);
+
+          wedding.contract_signed = true;
+          wedding.contract_signed_date = signDate;
+          wedding.status = newStatus;
+
+          // Auto-generate payment schedule if payments table is empty
+          const { data: existingPayments } = await supabase.from('payments').select('id').eq('wedding_id', wedding.id);
+          if (!existingPayments || existingPayments.length === 0) {
+            const total = wedding.total_price || 0;
+            await supabase.from('payments').insert([
+              { wedding_id: wedding.id, label: 'Reserva de fecha (20%)', amount: total * 0.2, paid: false },
+              { wedding_id: wedding.id, label: 'Segundo pago (40%)', amount: total * 0.4, paid: false },
+              { wedding_id: wedding.id, label: 'Pago final a la entrega (40%)', amount: total * 0.4, paid: false }
+            ]);
+          }
+        }
+
         if (action === "sendMessage" && content) {
           await supabase.from('client_messages').insert({
             wedding_id: wedding.id,
