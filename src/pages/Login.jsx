@@ -1,12 +1,11 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, Mail, Lock, Loader2 } from "lucide-react";
+import { Mail, Lock, Loader2, KeyRound } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
-import GoogleIcon from "@/components/GoogleIcon";
+import { supabase } from "@/api/supabaseClient";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -18,85 +17,83 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setLoading(true);
+
     try {
-      await base44.auth.loginViaEmailPassword(email, password);
+      // 1. Attempt login with Supabase
+      const authRes = await base44.auth.loginViaEmailPassword(email, password);
+      const userObj = authRes?.user || authRes?.session?.user;
+
+      if (!userObj) {
+        throw new Error("No se pudo iniciar sesión. Verifica tus credenciales.");
+      }
+
+      // 2. Check if user is authorized in studio_users table
+      const { data: authorizedUsers } = await supabase
+        .from('studio_users')
+        .select('*');
+
+      if (authorizedUsers && authorizedUsers.length > 0) {
+        const isAuthorized = authorizedUsers.some(
+          (u) => u.email?.toLowerCase() === email.trim().toLowerCase()
+        );
+        if (!isAuthorized) {
+          await supabase.auth.signOut();
+          throw new Error("Acceso denegado. Este correo electrónico no está autorizado por la dirección del estudio.");
+        }
+      } else {
+        // Auto-register first setup admin user in studio_users
+        await supabase.from('studio_users').insert({
+          name: email.split('@')[0],
+          email: email.trim().toLowerCase(),
+          role: 'admin',
+          created_at: new Date().toISOString()
+        });
+      }
+
       window.location.href = "/";
     } catch (err) {
-      setError(err.message || "Invalid email or password");
+      console.error("Login error:", err);
+      setError(err.message || "Credenciales incorrectas o usuario no autorizado.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogle = () => {
-    base44.auth.loginWithProvider("google", "/");
-  };
-
   return (
     <AuthLayout
-      icon={LogIn}
-      title="Welcome back"
-      subtitle="Log in to your account"
-      footer={
-        <>
-          Don't have an account?{" "}
-          <Link to="/register" className="text-primary font-medium hover:underline">
-            Create one
-          </Link>
-        </>
-      }
+      title="Acceso al Estudio"
+      subtitle="Área reservada exclusivamente para el equipo autorizado de Retratándote."
+      footer="🔒 Sistema de gestión interno. El alta de usuarios se realiza únicamente por la dirección del estudio desde la sección de Ajustes."
     >
-      <Button
-        variant="outline"
-        className="w-full h-12 text-sm font-medium mb-6"
-        onClick={handleGoogle}
-      >
-        <GoogleIcon className="w-5 h-5 mr-2" />
-        Continue with Google
-      </Button>
-
-      <div className="relative mb-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-3 text-muted-foreground">or</span>
-        </div>
-      </div>
-
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+        <div className="mb-5 p-3.5 rounded-xl bg-red-950/60 border border-red-800/80 text-red-200 text-xs leading-relaxed font-medium">
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="email" className="text-xs font-semibold text-stone-300">Correo del Estudio</Label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" aria-hidden="true" />
             <Input
               id="email"
               type="email"
               autoComplete="email"
               autoFocus
-              placeholder="you@example.com"
+              placeholder="juanjo@retratandote.es"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="pl-10 h-12"
+              className="pl-10 h-11 bg-stone-900/80 border-stone-700/80 text-white placeholder:text-stone-600 focus:border-[#C9A84C] text-sm"
               required
             />
           </div>
         </div>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="password">Password</Label>
-            <Link to="/forgot-password" className="text-xs text-primary hover:underline">
-              Forgot password?
-            </Link>
-          </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="password" className="text-xs font-semibold text-stone-300">Contraseña de Acceso</Label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" aria-hidden="true" />
             <Input
               id="password"
               type="password"
@@ -104,19 +101,27 @@ export default function Login() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="pl-10 h-12"
+              className="pl-10 h-11 bg-stone-900/80 border-stone-700/80 text-white placeholder:text-stone-600 focus:border-[#C9A84C] text-sm"
               required
             />
           </div>
         </div>
-        <Button type="submit" className="w-full h-12 font-medium" disabled={loading}>
+
+        <Button 
+          type="submit" 
+          className="w-full h-11 font-medium bg-[#C9A84C] hover:bg-[#b5953f] text-[#1A1A18] font-semibold mt-2 shadow-md transition-all" 
+          disabled={loading}
+        >
           {loading ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Logging in...
+              <Loader2 className="w-4 h-4 mr-2 animate-spin text-[#1A1A18]" />
+              Verificando credenciales...
             </>
           ) : (
-            "Log in"
+            <>
+              <KeyRound className="w-4 h-4 mr-2 text-[#1A1A18]" />
+              Entrar al Panel
+            </>
           )}
         </Button>
       </form>
